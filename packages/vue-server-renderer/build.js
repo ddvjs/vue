@@ -920,8 +920,8 @@ Dep.prototype.removeSub = function removeSub (sub) {
 };
 
 Dep.prototype.depend = function depend () {
-  if (Dep.target) {
-    Dep.target.addDep(this);
+  if (Dep.target.storage) {
+    Dep.target.storage.addDep(this);
   }
 };
 
@@ -936,16 +936,18 @@ Dep.prototype.notify = function notify () {
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
 // watcher being evaluated at any time.
-Dep.target = null;
+Dep.target = {
+  storage: null
+};
 var targetStack = [];
 
 function pushTarget (_target) {
-  if (Dep.target) { targetStack.push(Dep.target); }
-  Dep.target = _target;
+  if (Dep.target.storage) { targetStack.push(Dep.target.storage); }
+  Dep.target.storage = _target;
 }
 
 function popTarget () {
-  Dep.target = targetStack.pop();
+  Dep.target.storage = targetStack.pop();
 }
 
 /*
@@ -1133,7 +1135,7 @@ function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       var value = getter ? getter.call(obj) : val;
-      if (Dep.target) {
+      if (Dep.target.storage) {
         dep.depend();
         if (childOb) {
           childOb.dep.depend();
@@ -8022,13 +8024,21 @@ TemplateRenderer.prototype.renderSync = function renderSync (content, context) {
 TemplateRenderer.prototype.renderStyles = function renderStyles (context) {
     var this$1 = this;
 
-  var cssFiles = this.clientManifest
-    ? this.clientManifest.all.filter(isCSS)
-    : [];
+  var initial = this.preloadFiles || [];
+  var async = this.getUsedAsyncFiles(context) || [];
+  var cssFiles = initial.concat(async).filter(function (ref) {
+      var file = ref.file;
+
+      return isCSS(file);
+    });
   return (
     // render links for css files
     (cssFiles.length
-      ? cssFiles.map(function (file) { return ("<link rel=\"stylesheet\" href=\"" + (this$1.publicPath) + "/" + file + "\">"); }).join('')
+      ? cssFiles.map(function (ref) {
+          var file = ref.file;
+
+          return ("<link rel=\"stylesheet\" href=\"" + (this$1.publicPath) + "/" + file + "\">");
+    }).join('')
       : '') +
     // context.styles is a getter exposed by vue-style-loader which contains
     // the inline component styles collected during SSR
@@ -8124,14 +8134,18 @@ TemplateRenderer.prototype.renderScripts = function renderScripts (context) {
     var this$1 = this;
 
   if (this.clientManifest) {
-    var initial = this.preloadFiles;
-    var async = this.getUsedAsyncFiles(context);
-    var needed = [initial[0]].concat(async || [], initial.slice(1));
-    return needed.filter(function (ref) {
+    var initial = this.preloadFiles.filter(function (ref) {
         var file = ref.file;
 
         return isJS(file);
-      }).map(function (ref) {
+      });
+    var async = (this.getUsedAsyncFiles(context) || []).filter(function (ref) {
+        var file = ref.file;
+
+        return isJS(file);
+      });
+    var needed = [initial[0]].concat(async || [], initial.slice(1));
+    return needed.map(function (ref) {
         var file = ref.file;
 
       return ("<script src=\"" + (this$1.publicPath) + "/" + file + "\" defer></script>")

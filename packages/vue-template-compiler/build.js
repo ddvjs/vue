@@ -1010,8 +1010,8 @@ Dep.prototype.removeSub = function removeSub (sub) {
 };
 
 Dep.prototype.depend = function depend () {
-  if (Dep.target) {
-    Dep.target.addDep(this);
+  if (Dep.target.storage) {
+    Dep.target.storage.addDep(this);
   }
 };
 
@@ -1026,7 +1026,9 @@ Dep.prototype.notify = function notify () {
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
 // watcher being evaluated at any time.
-Dep.target = null;
+Dep.target = {
+  storage: null
+};
 
 /*  */
 
@@ -1267,7 +1269,7 @@ function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       var value = getter ? getter.call(obj) : val;
-      if (Dep.target) {
+      if (Dep.target.storage) {
         dep.depend();
         if (childOb) {
           childOb.dep.depend();

@@ -687,8 +687,8 @@ Dep.prototype.removeSub = function removeSub (sub) {
 };
 
 Dep.prototype.depend = function depend () {
-  if (Dep.target) {
-    Dep.target.addDep(this);
+  if (Dep.target.storage) {
+    Dep.target.storage.addDep(this);
   }
 };
 
@@ -703,16 +703,26 @@ Dep.prototype.notify = function notify () {
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
 // watcher being evaluated at any time.
-Dep.target = null;
+Dep.target = {
+  storage: null
+};
 var targetStack = [];
 
 function pushTarget (_target) {
-  if (Dep.target) { targetStack.push(Dep.target); }
-  Dep.target = _target;
+  if (Dep.target.storage) { targetStack.push(Dep.target.storage); }
+  Dep.target.storage = _target;
 }
 
 function popTarget () {
-  Dep.target = targetStack.pop();
+  Dep.target.storage = targetStack.pop();
+}
+
+function depTarget (target) {
+  if (target) {
+    Dep.target = target;
+  } else {
+    return Dep.target
+  }
 }
 
 /*  */
@@ -987,7 +997,7 @@ function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       var value = getter ? getter.call(obj) : val;
-      if (Dep.target) {
+      if (Dep.target.storage) {
         dep.depend();
         if (childOb) {
           childOb.dep.depend();
@@ -3278,7 +3288,7 @@ Watcher.prototype.evaluate = function evaluate () {
  * Depend on this watcher. Only for computed property watchers.
  */
 Watcher.prototype.depend = function depend () {
-  if (this.dep && Dep.target) {
+  if (this.dep && Dep.target.storage) {
     this.dep.depend();
   }
 };
@@ -5058,6 +5068,7 @@ function initGlobalAPI (Vue) {
   Vue.set = set;
   Vue.delete = del;
   Vue.nextTick = nextTick;
+  Vue.depTarget = depTarget;
 
   Vue.options = Object.create(null);
   ASSET_TYPES.forEach(function (type) {
